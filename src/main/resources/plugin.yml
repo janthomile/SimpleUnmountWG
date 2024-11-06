@@ -1,0 +1,6 @@
+name: SimpleUnmount
+version: 1.0
+author: Supermemnon
+main: supermemnon.simpleunmount.SimpleUnmount
+api-version: '1.16'
+depend: [WorldGuard,WorldEdit]
