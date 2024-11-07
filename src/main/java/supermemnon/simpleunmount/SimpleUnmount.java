@@ -6,6 +6,7 @@ import com.sk89q.worldguard.WorldGuard;
 import com.sk89q.worldguard.bukkit.WorldGuardPlugin;
 import com.sk89q.worldguard.protection.ApplicableRegionSet;
 import com.sk89q.worldguard.protection.flags.BooleanFlag;
+import com.sk89q.worldguard.protection.flags.StateFlag;
 import com.sk89q.worldguard.protection.flags.registry.FlagRegistry;
 import com.sk89q.worldguard.protection.regions.ProtectedRegion;
 import jdk.nashorn.internal.objects.annotations.Getter;
@@ -26,7 +27,7 @@ import java.util.Objects;
 public class SimpleUnmount extends JavaPlugin {
     static final String bypassPermission = "simpleunmount.bypass";
     static final String ejectMessage = "You can't ride that here!";
-    static final BooleanFlag unmountFlag = new BooleanFlag("unmount");
+    static final StateFlag unmountFlag = new StateFlag("unmount", false);
     WorldEditPlugin worldEditPlugin;
     WorldGuardPlugin worldGuardPlugin;
     static WorldGuard worldGuard;
@@ -58,12 +59,14 @@ public class SimpleUnmount extends JavaPlugin {
     }
 
     public static boolean inUnmountRegion(Location location) {
-       boolean flag = false;
+        ProtectedRegion globalRegion = worldGuard.getPlatform().getRegionContainer().get(BukkitAdapter.adapt(location.getWorld())).getRegion(ProtectedRegion.GLOBAL_REGION);
+        boolean flag = globalRegion.getFlag(unmountFlag) == StateFlag.State.ALLOW;
+        int highest = 0;
        final ApplicableRegionSet regions = worldGuard.getPlatform().getRegionContainer().createQuery().getApplicableRegions(BukkitAdapter.adapt(Objects.requireNonNull(location)));
         for (ProtectedRegion region : regions) {
-            if (Boolean.TRUE.equals(region.getFlag(unmountFlag))) {
-                flag = true;
-                break;
+            if (region.getFlag(unmountFlag) != null && region.getPriority() >= highest) {
+                flag = region.getFlag(unmountFlag) == StateFlag.State.ALLOW;
+                highest = region.getPriority();
             }
         }
        return flag;
