@@ -8,6 +8,7 @@ import com.sk89q.worldguard.protection.ApplicableRegionSet;
 import com.sk89q.worldguard.protection.flags.BooleanFlag;
 import com.sk89q.worldguard.protection.flags.StateFlag;
 import com.sk89q.worldguard.protection.flags.registry.FlagRegistry;
+import com.sk89q.worldguard.protection.managers.RegionManager;
 import com.sk89q.worldguard.protection.regions.ProtectedRegion;
 import jdk.nashorn.internal.objects.annotations.Getter;
 import org.bukkit.ChatColor;
@@ -36,10 +37,10 @@ public class SimpleUnmount extends JavaPlugin {
    public void onLoad() {
        this.worldEditPlugin = (WorldEditPlugin) this.getServer().getPluginManager().getPlugin("WorldEdit");
        this.worldGuardPlugin = (WorldGuardPlugin) this.getServer().getPluginManager().getPlugin("WorldGuard");
-       this.worldGuard = WorldGuard.getInstance();
+       worldGuard = WorldGuard.getInstance();
 
        try {
-           FlagRegistry flagRegistry = this.worldGuard.getFlagRegistry();
+           FlagRegistry flagRegistry = worldGuard.getFlagRegistry();
            flagRegistry.register(unmountFlag);
 
        }
@@ -58,11 +59,24 @@ public class SimpleUnmount extends JavaPlugin {
 
     }
 
+    @SuppressWarnings("BooleanMethodIsAlwaysInverted")
     public static boolean inUnmountRegion(Location location) {
-        ProtectedRegion globalRegion = worldGuard.getPlatform().getRegionContainer().get(BukkitAdapter.adapt(location.getWorld())).getRegion(ProtectedRegion.GLOBAL_REGION);
-        boolean flag = globalRegion.getFlag(unmountFlag) == StateFlag.State.ALLOW;
+        boolean flag = false;
+        if (location != null && location.getWorld() != null) {
+            RegionManager manager = worldGuard.getPlatform().getRegionContainer().get(BukkitAdapter.adapt(location.getWorld()));
+            if (manager != null) {
+                ProtectedRegion globalRegion = manager.getRegion(ProtectedRegion.GLOBAL_REGION);
+                if (globalRegion != null) {
+                    flag = globalRegion.getFlag(unmountFlag) == StateFlag.State.ALLOW;
+                }
+            }
+        }
+        else {
+            return false;
+        }
+
         int highest = 0;
-       final ApplicableRegionSet regions = worldGuard.getPlatform().getRegionContainer().createQuery().getApplicableRegions(BukkitAdapter.adapt(Objects.requireNonNull(location)));
+       final ApplicableRegionSet regions = worldGuard.getPlatform().getRegionContainer().createQuery().getApplicableRegions(BukkitAdapter.adapt(location));
         for (ProtectedRegion region : regions) {
             if (region.getFlag(unmountFlag) != null && region.getPriority() >= highest) {
                 flag = region.getFlag(unmountFlag) == StateFlag.State.ALLOW;
@@ -72,7 +86,7 @@ public class SimpleUnmount extends JavaPlugin {
        return flag;
     }
 
-    public class EventListener implements Listener {
+    public static class EventListener implements Listener {
        @EventHandler
        public void onVehicleEnter(VehicleEnterEvent e) {
            if (!(e.getEntered() instanceof Player) || e.getEntered().hasPermission(bypassPermission) || !inUnmountRegion(e.getVehicle().getLocation())) {
@@ -83,6 +97,9 @@ public class SimpleUnmount extends JavaPlugin {
        }
        @EventHandler
         public void onPlayerMove(PlayerMoveEvent e) {
+           if (e.getTo() == null || e.getTo().getWorld() == null) {
+               return;
+           }
             if (e.getPlayer().getVehicle() == null || e.getPlayer().hasPermission(bypassPermission) || !inUnmountRegion(e.getTo())) {
                return;
             }
